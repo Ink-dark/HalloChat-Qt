@@ -1,0 +1,27 @@
+# Build directories
+build/
+CMakeFiles/
+Makefile
+cmake_install.cmake
+*.cmake
+
+# Executables
+HalloChat-Qt.exe
+*.exe
+
+# Database files
+*.db
+
+# IDE files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Qt generated files
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
