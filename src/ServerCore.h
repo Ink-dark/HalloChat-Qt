@@ -22,6 +22,7 @@ public:
     void handleMessage(QWebSocket* client, const QByteArray& message);
     void sendError(QWebSocket* client, const QString& errorCode);
     void handleGetHistory(QWebSocket* client, const QString& userId);
+    void sendMessage(QWebSocket* client, const QString& message);
 
     // TLS配置
     void setSslConfiguration(const QSslConfiguration &config);

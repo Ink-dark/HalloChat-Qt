@@ -33,6 +33,13 @@ bool DatabaseManager::connectToDatabase()
     return false;
 }
 
+bool DatabaseManager::storeMessage(const QString& sender, const QString& receiver, const QByteArray& encryptedMsg) {
+    QString sql = "INSERT INTO messages (sender, receiver, content, timestamp) VALUES (?, ?, ?, ?)";
+    QVariantList bindValues;
+    bindValues << sender << receiver << encryptedMsg << QDateTime::currentSecsSinceEpoch();
+    return executeQuery(sql, bindValues);
+}
+
 bool DatabaseManager::openDatabase()
 {
     int result = sqlite3_open(m_databasePath.toUtf8().constData(), &m_dbHandle);

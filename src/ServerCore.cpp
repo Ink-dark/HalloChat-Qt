@@ -1,4 +1,5 @@
 #include "ServerCore.h"
+#include "CryptoService.h"
 #include <QSslConfiguration>
 #include <QSslCertificate>
 #include <QSslKey>
@@ -199,7 +200,15 @@ void ServerCore::handleGetHistory(QWebSocket* client, const QString& userId)
     QJsonObject response;
     response["type"] = "history_response";
     response["messages"] = QJsonArray(); // 实际项目中应从数据库查询
-    client->sendTextMessage(QJsonDocument(response).toJson(QJsonDocument::Compact));
+    sendMessage(client, QJsonDocument(response).toJson(QJsonDocument::Compact));
+}
+
+void ServerCore::sendMessage(QWebSocket* client, const QString& message)
+{
+    // 256位加密密钥（生产环境需使用安全密钥管理）
+    QByteArray key = QByteArray::fromHex("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f");
+    QByteArray encryptedData = CryptoService::encryptMessage(message, key);
+    client->sendBinaryMessage(encryptedData);
 }
 
 void ServerCore::onServerError(QWebSocketProtocol::CloseCode closeCode)

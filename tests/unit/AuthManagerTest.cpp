@@ -55,6 +55,32 @@ TEST_F(AuthManagerTest, RefreshValidToken) {
     EXPECT_TRUE(authManager.validateToken(newToken));
 }
 
+TEST_F(AuthManagerTest, RevokedToken) {
+    QString userId = "test_user_123";
+    QString token = authManager.generateToken(userId);
+    ASSERT_FALSE(token.isEmpty());
+
+    // 提取JWT中的jti
+    QString jti;
+    QByteArray tokenBytes = token.toUtf8();
+    QStringList parts = QString(tokenBytes).split('.');
+    if (parts.size() >= 2) {
+        QByteArray payloadBytes = QByteArray::fromBase64(parts[1].toUtf8(), QByteArray::Base64UrlEncoding);
+        QJsonObject payload = QJsonDocument::fromJson(payloadBytes).object();
+        jti = payload["jti"].toString();
+    }
+    ASSERT_FALSE(jti.isEmpty());
+
+    // 吊销令牌
+    authManager.revokeToken(jti);
+
+    // 验证吊销状态
+    ASSERT_TRUE(authManager.isTokenRevoked(jti));
+
+    // 验证吊销的令牌无法通过验证
+    ASSERT_FALSE(authManager.validateToken(token));
+}
+
 TEST_F(AuthManagerTest, GetUserIdFromValidToken) {
     QString userId = "user456";
     QString token = authManager.generateToken(userId);

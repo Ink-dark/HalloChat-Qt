@@ -43,7 +43,17 @@ bool AuthManager::secureCompare(const QString& a, const QString& b)
         result |= a[i].unicode() ^ b[i].unicode();
     }
     return result == 0;
+}
 
+void AuthManager::revokeToken(const QString& jti) {
+    QMutexLocker lock(&revocationMutex);
+    revokedTokens.insert(jti, QDateTime::currentSecsSinceEpoch());
+}
+
+bool AuthManager::isTokenRevoked(const QString& jti) {
+    QMutexLocker lock(&revocationMutex);
+    return revokedTokens.contains(jti);
+}
 QString AuthManager::generateToken(const QString& userId) {
     QJsonObject header {
         {"alg", algorithm},
@@ -53,7 +63,8 @@ QString AuthManager::generateToken(const QString& userId) {
     QJsonObject payload {
         {"sub", userId},
         {"iat", QDateTime::currentSecsSinceEpoch()},
-        {"exp", QDateTime::currentSecsSinceEpoch() + 3600} // 1小时有效期
+        {"exp", QDateTime::currentSecsSinceEpoch() + 3600},
+        {"jti", QUuid::createUuid().toString(QUuid::WithoutBraces)} // 唯一令牌ID
     };
     
     // Base64编码头部和载荷（URL安全模式）
@@ -88,11 +99,21 @@ bool AuthManager::validateToken(const QString& token) {
     // 验证过期时间
     QByteArray payloadBytes = QByteArray::fromBase64(parts[1].toUtf8(), QByteArray::Base64UrlEncoding);
     QJsonObject payload = QJsonDocument::fromJson(payloadBytes).object();
-    
+   // 验证过期时间
     qint64 exp = payload["exp"].toDouble();
     qint64 now = QDateTime::currentSecsSinceEpoch();
     
-    return exp > now;
+    if (exp <= now) {
+        return false;
+    }
+    
+    // 检查令牌是否被吊销
+    QString jti = payload["jti"].toString();
+    if (isTokenRevoked(jti)) {
+        return false;
+    }
+    
+    return true;
 }
 
 QString AuthManager::refreshToken(const QString& token) {
