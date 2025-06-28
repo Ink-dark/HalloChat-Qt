@@ -1,6 +1,6 @@
 # HalloChat-Qt
 
-一个从Electron迁移到Qt/QML架构的应用程序，具有安全的聊天功能，主要改进如下：
+一个从Electron迁移到Qt/QML架构的应用程序，具有聊天功能，主要改进如下：
 
 ## 核心功能
 - SQLite数据库集成，实现数据持久化存储
