@@ -6,6 +6,8 @@
 #include <QThreadPool>
 #include <QObject>
 #include <QSslConfiguration>
+#include "AuthManager.h"
+#include "DatabaseManager.h"
 
 class ServerCore : public QObject
 {
@@ -16,6 +18,7 @@ public:
 
     bool startServer(quint16 port, bool secure = false);
     void stopServer();
+    void handleLogin(const QString& username, const QString& password, QWebSocket* client);
 
     // TLS配置
     void setSslConfiguration(const QSslConfiguration &config);
@@ -42,6 +45,8 @@ private:
     QThreadPool *m_threadPool;
     const int MAX_THREAD_COUNT = 10;
     const int MAX_CONCURRENT_CONNECTIONS = 100;
+    AuthManager* authManager;
+    DatabaseManager* dbManager;
 };
 
 #endif // SERVERCORE_H
