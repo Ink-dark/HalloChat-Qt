@@ -116,18 +116,90 @@ void ServerCore::onTextMessageReceived(const QString &message)
 {
     QWebSocket *client = qobject_cast<QWebSocket *>(sender());
     if (client) {
-        QJsonDocument doc = QJsonDocument::fromJson(message.toUtf8());
-        if (doc.isObject()) {
-            QJsonObject obj = doc.object();
-            if (obj["type"].toString() == "login") {
-                QString username = obj["username"].toString();
-                QString password = obj["password"].toString();
-                handleLogin(username, password, client);
-                return;
-            }
-        }
-        emit messageReceived(client, message);
+        handleMessage(client, message.toUtf8());
     }
+}
+
+void ServerCore::onBinaryMessageReceived(const QByteArray &message)
+{
+    QWebSocket *client = qobject_cast<QWebSocket *>(sender());
+    if (client) {
+        handleMessage(client, message);
+    }
+}
+
+void ServerCore::handleMessage(QWebSocket* client, const QByteArray& message)
+{
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(message, &parseError);
+    
+    if (parseError.error != QJsonParseError::NoError) {
+        sendError(client, "INVALID_JSON");
+        return;
+    }
+    
+    if (!doc.isObject()) {
+        sendError(client, "INVALID_FORMAT");
+        return;
+    }
+    
+    QJsonObject json = doc.object();
+    QString type = json["type"].toString();
+    
+    // 登录请求不需要令牌验证
+    if (type == "login") {
+        handleLogin(json["username"].toString(), json["password"].toString(), client);
+        return;
+    }
+    
+    // 其他请求需要令牌验证
+    QString token = json["token"].toString();
+    if (token.isEmpty() || !authManager->validateToken(token)) {
+        sendError(client, "INVALID_TOKEN");
+        return;
+    }
+    
+    // 令牌有效，提取用户ID并处理请求
+    QString userId = authManager->getUserIdFromToken(token);
+    if (userId.isEmpty()) {
+        sendError(client, "INVALID_TOKEN");
+        return;
+    }
+    
+    // 根据请求类型路由到相应处理函数
+    if (type == "get_history") {
+        handleGetHistory(client, userId);
+    } else if (type == "refresh_token") {
+        QString newToken = authManager->refreshToken(token);
+        if (!newToken.isEmpty()) {
+            QJsonObject response;
+            response["type"] = "token_refreshed";
+            response["token"] = newToken;
+            client->sendTextMessage(QJsonDocument(response).toJson(QJsonDocument::Compact));
+        } else {
+            sendError(client, "REFRESH_FAILED");
+        }
+    } else {
+        // 未处理的请求类型
+        sendError(client, "UNKNOWN_REQUEST");
+    }
+}
+
+void ServerCore::sendError(QWebSocket* client, const QString& errorCode)
+{
+    QJsonObject response;
+    response["type"] = "error";
+    response["code"] = errorCode;
+    client->sendTextMessage(QJsonDocument(response).toJson(QJsonDocument::Compact));
+}
+
+void ServerCore::handleGetHistory(QWebSocket* client, const QString& userId)
+{
+    // 实现消息历史查询逻辑
+    QJsonObject response;
+    response["type"] = "history_response";
+    response["messages"] = QJsonArray(); // 实际项目中应从数据库查询
+    client->sendTextMessage(QJsonDocument(response).toJson(QJsonDocument::Compact));
 }
 
 void ServerCore::onServerError(QWebSocketProtocol::CloseCode closeCode)

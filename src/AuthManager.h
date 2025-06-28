@@ -13,6 +13,7 @@ public:
     QString getUserIdFromToken(const QString& token);
     
 private:
+    bool secureCompare(const QString& a, const QString& b);
     QByteArray secretKey;
     QString algorithm = "HS256";  // HMAC-SHA256
     void loadSecretKey();
