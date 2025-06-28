@@ -25,3 +25,8 @@ HalloChat-Qt.exe
 moc_*.cpp
 qrc_*.cpp
 ui_*.h
+
+# Protocol security
+/src/protocol/
+/src/device/
+/qml/ResourceMonitor.qml
