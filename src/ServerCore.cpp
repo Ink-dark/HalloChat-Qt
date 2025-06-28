@@ -4,11 +4,15 @@
 #include <QSslKey>
 #include <QFile>
 #include <QDebug>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 ServerCore::ServerCore(QObject *parent) :
     QWebSocketServer("HalloChat", QWebSocketServer::SecureMode, parent),
     m_sslConfig(QSslConfiguration::defaultConfiguration())
 {
+    authManager = new AuthManager(this);
+    dbManager = new DatabaseManager(this);
     // 加载SSL证书和密钥
     loadSslConfiguration();
 
@@ -19,7 +23,7 @@ ServerCore::ServerCore(QObject *parent) :
 
 ServerCore::~ServerCore()
 {
-    closeServer();
+    stopServer();
 }
 
 bool ServerCore::startServer(quint16 port)
@@ -37,7 +41,7 @@ bool ServerCore::startServer(quint16 port)
     }
 }
 
-void ServerCore::closeServer()
+void ServerCore::stopServer()
 {
     if (isListening()) {
         // 关闭所有客户端连接
@@ -112,7 +116,16 @@ void ServerCore::onTextMessageReceived(const QString &message)
 {
     QWebSocket *client = qobject_cast<QWebSocket *>(sender());
     if (client) {
-        // 文本消息处理逻辑（可交给线程池处理）
+        QJsonDocument doc = QJsonDocument::fromJson(message.toUtf8());
+        if (doc.isObject()) {
+            QJsonObject obj = doc.object();
+            if (obj["type"].toString() == "login") {
+                QString username = obj["username"].toString();
+                QString password = obj["password"].toString();
+                handleLogin(username, password, client);
+                return;
+            }
+        }
         emit messageReceived(client, message);
     }
 }
@@ -121,6 +134,22 @@ void ServerCore::onServerError(QWebSocketProtocol::CloseCode closeCode)
 {
     emit errorOccurred(tr("服务器错误: %1").arg(m_webSocketServer->errorString()));
     qWarning() << "服务器错误代码:" << closeCode << "错误信息:" << m_webSocketServer->errorString();
+}
+
+void ServerCore::handleLogin(const QString& username, const QString& password, QWebSocket* client)
+{
+    if (dbManager->validateUser(username, password)) {
+        QString token = authManager->generateToken(username);
+        QJsonObject response;
+        response["type"] = "auth_success";
+        response["token"] = token;
+        client->sendTextMessage(QJsonDocument(response).toJson(QJsonDocument::Compact));
+    } else {
+        QJsonObject response;
+        response["type"] = "auth_failure";
+        response["message"] = "用户名或密码错误";
+        client->sendTextMessage(QJsonDocument(response).toJson(QJsonDocument::Compact));
+    }
 }
 {
     if (m_clients.size() >= MAX_CONCURRENT_CONNECTIONS) {
